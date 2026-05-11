@@ -44,7 +44,7 @@ cd SmsForward
 # Android Studio에서 폴더 열기 → Gradle Sync → ▶ Run
 ```
 
-> ⚠️ Gradle wrapper jar(`gradle/wrapper/gradle-wrapper.jar`)는 저장소에 포함되어 있지 않습니다. Android Studio가 프로젝트 열 때 자동 생성하거나, `gradle wrapper --gradle-version 8.4` 명령으로 직접 생성하세요.
+> 💡 IDE 없이 CLI 빌드: `./gradlew assembleDebug` (Wrapper 포함, JDK 17+ 필요)
 
 ---
 
