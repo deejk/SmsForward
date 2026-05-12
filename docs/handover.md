@@ -110,6 +110,7 @@ adb install C:\dev\smsforward\app\build\outputs\apk\debug\app-debug.apk
 | `adb` 명령 못 찾음 | `%LOCALAPPDATA%\Android\Sdk\platform-tools`를 PATH에 추가 |
 | 폰이 `adb devices`에 안 나옴 | USB 케이블 교체 (충전 전용 케이블 주의) / 폰 USB 디버깅 재허용 |
 | 설치 시 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | 폰에 같은 패키지 기존재 → 먼저 삭제 후 재설치 |
+| **테스트 SMS 보냈는데 SmsForward가 못 받음** (Logcat에 `SmsReceiver` 로그 0건, 메시지 앱엔 도착) | 갤럭시↔갤럭시 RCS 자동 변환 → 발신 폰 삼성 메시지 → 채팅 설정 → "채팅 기능" OFF. 실 카드사 SMS는 단축번호라 운영 시엔 불필요. (상세: `install-troubleshooting.md` 5섹션) |
 
 ---
 

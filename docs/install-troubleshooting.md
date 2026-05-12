@@ -132,7 +132,37 @@ adb install app\build\outputs\apk\debug\app-debug.apk
 
 ---
 
-## 5. 향후 개선 (선택)
+## 5. 갤럭시↔갤럭시 RCS 자동 변환 이슈 (해결 ✅)
+
+### 증상
+- B폰(SmsForward 설치)에 A폰에서 카드 형식 테스트 SMS 보냄
+- B폰 메시지 앱에는 문자 정상 도착
+- 그런데 SmsForward의 `SmsReceiver.onReceive()`가 호출조차 안 됨 (Logcat에 `SmsReceiver` 태그 로그 0건)
+- 결과: 와이프 폰으로 전달 실패
+
+### 원인
+- A·B 둘 다 갤럭시 → 삼성 메시지 앱이 자동으로 **RCS(채팅+)** 로 변환 전송
+- RCS 메시지는 `android.provider.Telephony.SMS_RECEIVED` 액션을 발생시키지 않음
+- → BroadcastReceiver 트리거 자체 안 됨
+
+### 해결
+**A폰**(또는 B폰) 삼성 메시지 앱 → 설정 → **채팅 설정 → "채팅 기능" OFF**
+- OFF 후 보내면 일반 SMS로 전송되어 SmsForward가 정상 수신
+- 메시지 앱에서 보낸 문자 색깔로 구분 가능 (RCS=파란색/채팅 표시, SMS=녹색/회색)
+
+### ⭐ 운영 시 중요 안내
+- **실제 카드사 SMS(1588-8900 삼성, 1544-7200 신한 등)는 단축번호 발신 일반 SMS** → RCS와 무관
+- → **실 운영에서는 채팅 기능 OFF 불필요**
+- 채팅 기능 OFF는 **테스트 시에만** 필요
+- 즉, 와이프 폰의 채팅 기능은 그대로 두어도 카드 알림 전달은 정상 동작
+
+### 진단 키 (다음에 비슷한 증상 만나면)
+- Logcat에 `SmsReceiver` 태그 로그가 0건 + 메시지 앱엔 도착함 → RCS 의심
+- 즉시 채팅 기능 OFF 후 재테스트
+
+---
+
+## 6. 향후 개선 (선택)
 
 - **릴리즈 키스토어로 서명한 APK 빌드** → 디버그 APK보다 차단 확률 낮음 (단 keystore 별도 생성 필요, 가이드 8단계의 APK 추출 흐름 확장)
 - **앱 아이콘/이름을 일반 앱처럼** → "카드문자 전달" 같은 직관적 이름이 오히려 의심도를 높임. 권한 자체 때문이라 큰 차이 없을 가능성 있음
@@ -140,7 +170,7 @@ adb install app\build\outputs\apk\debug\app-debug.apk
 
 ---
 
-## 6. 참고
+## 7. 참고
 
 - **setup-guide.md**: 전체 빌드/설치 절차 (Android Studio GUI 기준)
 - **README.md**: 프로젝트 개요, 권한 명세, 알려진 한계
