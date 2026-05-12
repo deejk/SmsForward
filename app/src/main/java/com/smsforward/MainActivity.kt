@@ -35,7 +35,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadSettings() {
         binding.etTargetPhone.setText(pref.targetPhoneNumber)
-        binding.etKeywords.setText(pref.filterKeywords)
         updateServiceButton(pref.serviceEnabled)
     }
 
@@ -74,7 +73,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveSettings() {
         pref.targetPhoneNumber = binding.etTargetPhone.text.toString().trim()
-        pref.filterKeywords = binding.etKeywords.text.toString().trim()
     }
 
     private fun startService() {
