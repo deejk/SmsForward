@@ -1,6 +1,6 @@
 # 새 노트북 작업 인계 체크리스트
 
-작성일: 2026-05-11
+작성일: 2026-05-12 (최종 갱신)
 이전 환경: Windows + WSL, 한글 Windows 사용자명, 프로젝트 `C:\dev\smsforward`
 다음 환경: 새 노트북 (Android Studio 신규 설치 예정)
 
@@ -10,17 +10,24 @@
 
 | 항목 | 상태 |
 |------|------|
-| 소스 코드 | ✅ GitHub `main` 최신 (`f3abc0e`) |
+| 소스 코드 | ✅ GitHub `main` 최신 (`78e548d`) |
 | Gradle Wrapper | ✅ 저장소 포함 (clone 직후 `./gradlew` 사용 가능) |
-| Debug APK 빌드 | ✅ 성공 (이전 노트북, `BUILD SUCCESSFUL`) |
-| 폰 설치 | ❌ 미해결 — "악성앱 의심"으로 카톡 설치 차단됨 |
+| Debug APK 빌드 | ✅ 성공 (`build-debug.bat` 사용, `BUILD SUCCESSFUL`) |
+| 폰 설치 | ✅ S25(시리얼 `R3CY90YASYA`)에 ADB로 설치 완료 |
+| 매칭 로직 | ✅ C안 정규식 기반 (삼성/신한 전용, 승인+승인거절) |
+| 권한 설정 | ⏳ A폰에서 사용자가 권한 5종 설정 + 서비스 시작 수동 진행 단계 |
+| 운영 검증 | ⏳ 첫 실 카드 결제 발생 대기 — Logcat `SmsReceiver: 문자 전달 성공` 확인 필요 |
 
 **최근 커밋 (작업 재개 시 동기화 기준)**
+- `78e548d` fix: 다크 모드에서 안내 텍스트 가독성 개선
+- `db434c0` docs: RCS 자동 변환 이슈 트러블슈팅 + 빌드/설치 헬퍼 스크립트
+- `bd92749` feat: 카드 SMS 매칭을 정규식 기반으로 강화 (삼성/신한 전용)
+- `f1a54a8` docs: 새 노트북 작업 인계 체크리스트 추가
 - `f3abc0e` docs: README wrapper 안내 갱신
-- `5e98558` docs: 빌드/설치 트러블슈팅 가이드 추가
-- `4ccc44f` build: Gradle wrapper 파일 추가
-- `5079951` chore: MIT 라이선스 추가
-- `71b735b` docs: README.md 작성
+
+**저장소에 포함된 헬퍼 (새 노트북에서 그대로 사용 가능)**
+- `build-debug.bat` — JBR 21 환경변수 세팅 후 assembleDebug 실행
+- `adb-install.bat` — adb devices 확인 후 `-r` 옵션 설치
 
 ---
 
@@ -82,21 +89,37 @@ cd C:\dev\smsforward
    ```
    폰 모델명이 보이면 OK.
 
-### Step 7. 앱 설치 ⚠️ (이전 노트북에서 막힘)
+### Step 7. 앱 설치 (ADB로 해결됨 ✅)
 
-> 갤럭시 S25에서 카톡 전송 → "악성앱 의심"으로 차단됨. SMS 권한 때문에 Play Protect / Auto Blocker가 자동 차단하는 정상 동작.
+> 갤럭시 S25 카톡 전송 시 "악성앱 의심" 차단됨 — ADB 설치로 우회. 검증 완료.
 
-**A안: ADB 설치 (가장 확실, 추천 ⭐)**
+**ADB 설치 (추천 ⭐, 헬퍼 사용)**
 ```bat
-adb install C:\dev\smsforward\app\build\outputs\apk\debug\app-debug.apk
+cd C:\dev\smsforward
+adb-install.bat
 ```
-→ `Success` 뜨면 끝. Play Protect / Auto Blocker 모두 우회됨.
+WSL에서 호출 시:
+```bash
+cmd.exe /c "cd /d C:\dev\smsforward && adb-install.bat"
+```
+→ `Success` 뜨면 끝. Play Protect / Auto Blocker / 카톡 차단 모두 우회됨.
 
-**B안: 차단 우회 (ADB 안 될 때)**
-👉 **`install-troubleshooting.md` 4섹션** 참조 — 설정 검색 / 팝업 숨김 옵션 / Auto Blocker 끄기
+> ⚠️ **WSL의 adb는 USB 못 봄** — 반드시 Windows의 adb(헬퍼 배치 안에서 호출)를 써야 함.
+
+**차단 우회 (ADB 불가 환경 한정)**
+👉 **`install-troubleshooting.md` 4섹션** 참조
 
 ### Step 8. 앱 권한 설정 + 동작 테스트
 👉 **`setup-guide.md` 6~7단계** 그대로 진행
+
+**⚠️ 주의 — 알림 권한 거부 시 Foreground Service 동작 안 함**
+- 이전 실패 사례: 사용자가 알림 권한 거부 → Logcat에 `Suppressing notification by user request` → 서비스 미동작
+- 반드시 SMS 3종 + **알림** 모두 허용
+
+**⚠️ 보안 폴더 자동 클론 주의**
+- 어느 시점에 보안 폴더가 활성화돼 있으면 같은 앱이 user 0(일반) + user 150(보안 폴더)로 자동 복제됨
+- 홈화면에 같은 앱 두 개(하나는 작은 점 표시) 보이면 → 설정 → 보안 및 개인정보 보호 → 보안 폴더 진입 → 안에서 제거
+- 진단: `adb shell pm list packages | findstr smsforward` 결과에 `Error: ... user 150` 보이면 확정
 
 ---
 
@@ -127,12 +150,18 @@ adb install C:\dev\smsforward\app\build\outputs\apk\debug\app-debug.apk
 
 ## 6. 작업 재개 후 다음 할 일
 
-설치 성공 시:
-1. setup-guide.md 6~7단계로 권한 + 동작 테스트
-2. 실제 카드 결제 SMS로 운영 검증 (Logcat에 `SmsReceiver` 태그 확인)
+**현재 (2026-05-12 기준) — 폰 설치 완료, 운영 검증 대기 중**
 
-설치 계속 차단되면:
-- **release keystore로 서명한 APK 빌드** 고려 (디버그보다 차단 확률 낮음)
-- 또는 Google Play 내부 테스트 트랙 등록 (정석이지만 등록비·검수)
+운영 검증 (실 카드 결제 발생 후):
+```bat
+adb logcat -s SmsReceiver
+```
+- `문자 전달 성공 → 010-xxxx-xxxx` 한 줄 보이면 운영 OK
+- 와이프 폰에 `[카드문자 전달]` 메시지 도착 확인
+
+새 노트북 인계 후 추가 작업이 필요해진다면:
+1. **카드사 추가 지원** (현대/KB 등) — `SmsReceiver.kt`의 `CARD_PATTERNS`에 정규식 추가
+2. **release keystore로 서명한 APK 빌드** — 디버그 APK는 매 빌드마다 키 바뀌어 재설치 시 데이터 초기화 가능
+3. **Google Play 내부 테스트 트랙** — 정석 배포 (등록비·검수 필요)
 
 막히면 새 Claude Code 세션 열어서 이 문서 + 막힌 화면 캡처 공유하면 이어서 봐드릴 수 있습니다.
