@@ -10,25 +10,27 @@
 
 | 항목 | 상태 |
 |------|------|
-| 소스 코드 | ✅ `main` 최신 (`9e21042`, 푸시 전이면 push 필요) |
+| 소스 코드 | ✅ `main` 최신 (`b22a65c`, 푸시 전이면 push 필요) |
 | Gradle Wrapper | ✅ 저장소 포함 (clone 직후 `./gradlew` 사용 가능) |
-| Debug APK 빌드 | ✅ 성공 (`build-debug.bat` 사용, `BUILD SUCCESSFUL`) |
-| 폰 설치 | ✅ S25(시리얼 `R3CY90YASYA`)에 ADB로 설치 완료 |
+| Release APK 빌드 | ✅ 성공 (`build-release.bat`, 서명 적용 `assembleRelease`) |
+| 폰 설치 | ✅ S25(시리얼 `R3CY90YASYA`)에 **release 서명 APK** 설치 완료 (디버그→릴리스 1회 삭제 후 재설치 완료) |
 | 매칭 로직 | ✅ C안 정규식 기반 (삼성/신한 전용, 승인+승인거절) |
 | 월 누적 요약 | ✅ 카드별 당월 누적 자체 집계 후 전달 문자에 첨부 (승인만 가산, 추정치) |
+| Release 서명 | ✅ keystore 생성·서명 적용 완료. 재설치해도 누적 데이터 보존됨 (⚠️ keystore 백업 필수 — 아래 §7) |
 | 권한 설정 | ⏳ A폰에서 사용자가 권한 5종 설정 + 서비스 시작 수동 진행 단계 |
 | 운영 검증 | ⏳ 첫 실 카드 결제 발생 대기 — Logcat `SmsReceiver: 문자 전달 성공` 확인 필요 |
 
 **최근 커밋 (작업 재개 시 동기화 기준)**
+- `b22a65c` build: release keystore 서명 설정 추가
 - `9e21042` feat: 카드별 월 누적 사용액 요약을 전달 문자에 첨부
 - `3f9ee68` docs: 2026-05-12 작업 결과 반영해 handover 갱신
 - `78e548d` fix: 다크 모드에서 안내 텍스트 가독성 개선
 - `db434c0` docs: RCS 자동 변환 이슈 트러블슈팅 + 빌드/설치 헬퍼 스크립트
-- `bd92749` feat: 카드 SMS 매칭을 정규식 기반으로 강화 (삼성/신한 전용)
 
 **저장소에 포함된 헬퍼 (새 노트북에서 그대로 사용 가능)**
 - `build-debug.bat` — JBR 21 환경변수 세팅 후 assembleDebug 실행
-- `adb-install.bat` — adb devices 확인 후 `-r` 옵션 설치
+- `build-release.bat` — JBR 21 세팅 후 서명된 assembleRelease 실행
+- `adb-install.bat` — adb devices 확인 후 `-r` 옵션 설치 (디버그용)
 
 ---
 
@@ -163,8 +165,32 @@ adb logcat -s SmsReceiver
 - ⚠️ 누적 요약은 앱 자체 집계(추정치) — SMS 내 `누적` 표기는 월 합계가 아니라 미사용. 카드사 공식 청구액과 다를 수 있음
 
 새 노트북 인계 후 추가 작업이 필요해진다면:
-1. **카드사 추가 지원** (현대/KB 등) — `SmsReceiver.kt`의 `CARD_PATTERNS`에 정규식 추가
-2. **release keystore로 서명한 APK 빌드** — 디버그 APK는 매 빌드마다 키 바뀌어 재설치 시 데이터 초기화 가능
+1. **카드사 추가 지원** (현대/KB 등) — `SmsReceiver.kt`의 `CARD_PATTERNS` + `APPROVAL_PATTERNS`에 정규식 추가
+2. ✅ ~~release keystore로 서명한 APK 빌드~~ — **완료** (아래 §7 백업만 챙길 것)
 3. **Google Play 내부 테스트 트랙** — 정석 배포 (등록비·검수 필요)
 
 막히면 새 Claude Code 세션 열어서 이 문서 + 막힌 화면 캡처 공유하면 이어서 봐드릴 수 있습니다.
+
+---
+
+## 7. ⚠️ Release Keystore 백업 (가장 중요)
+
+release 서명으로 전환 완료. **재설치해도 데이터(카드 월 누적 등)가 보존**되지만, 그러려면 **항상 같은 keystore로 서명**해야 한다.
+
+### 백업 대상 (git에 없음 — `.gitignore` 처리됨, 공개 저장소라 커밋 금지)
+| 파일 | 위치 | 내용 |
+|------|------|------|
+| `smsforward-release.keystore` | 프로젝트 루트 | 서명 키 (PKCS12, alias `smsforward`, 10000일 유효) |
+| `keystore.properties` | 프로젝트 루트 | 비밀번호·alias 등 서명 설정 |
+
+### 반드시 할 것
+- 위 **두 파일을 안전한 곳에 백업** (개인 클라우드/USB/비밀번호 매니저). git 말고.
+- **비밀번호 별도 기록** (`keystore.properties`의 `storePassword`/`keyPassword`).
+
+### 분실하면?
+- keystore를 잃으면 **같은 서명을 다시 만들 수 없음** → 새 keystore로 서명 시 서명 불일치로 **기존 앱 위에 못 덮어씀** → 한 번 더 삭제 후 재설치(누적 데이터 초기화) 필요.
+- 그러니 **앱을 계속 쓸 거면 keystore 백업은 필수**.
+
+### 새 노트북 인계 시
+- clone 직후엔 keystore가 없으므로(gitignore) **백업해둔 두 파일을 프로젝트 루트에 복사**해야 `build-release.bat`가 동작한다.
+- 복사 없이 빌드하면 서명 없는 release가 만들어지거나 설치 시 기존 데이터와 호환 안 됨.
