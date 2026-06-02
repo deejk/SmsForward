@@ -10,3 +10,8 @@
 local.properties
 */build/
 build.log
+
+# Release signing (절대 커밋 금지 — 공개 저장소)
+*.keystore
+*.jks
+keystore.properties
