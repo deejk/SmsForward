@@ -175,22 +175,88 @@ adb logcat -s SmsReceiver
 
 ## 7. ⚠️ Release Keystore 백업 (가장 중요)
 
-release 서명으로 전환 완료. **재설치해도 데이터(카드 월 누적 등)가 보존**되지만, 그러려면 **항상 같은 keystore로 서명**해야 한다.
+release 서명으로 전환 완료. **재설치(`adb install -r`)해도 데이터(카드 월 누적·전달 번호·서비스 상태)가 보존**되지만, 그러려면 **항상 같은 keystore로 서명**해야 한다. keystore를 잃으면 데이터 보존이 불가능해진다.
 
-### 백업 대상 (git에 없음 — `.gitignore` 처리됨, 공개 저장소라 커밋 금지)
-| 파일 | 위치 | 내용 |
-|------|------|------|
-| `smsforward-release.keystore` | 프로젝트 루트 | 서명 키 (PKCS12, alias `smsforward`, 10000일 유효) |
-| `keystore.properties` | 프로젝트 루트 | 비밀번호·alias 등 서명 설정 |
+### 7-1. 백업 대상 — 이 2개만 챙기면 됨
 
-### 반드시 할 것
-- 위 **두 파일을 안전한 곳에 백업** (개인 클라우드/USB/비밀번호 매니저). git 말고.
-- **비밀번호 별도 기록** (`keystore.properties`의 `storePassword`/`keyPassword`).
+둘 다 git에 **없음** (`.gitignore` 처리, 공개 저장소라 커밋 금지). 그래서 별도 백업이 필수.
 
-### 분실하면?
-- keystore를 잃으면 **같은 서명을 다시 만들 수 없음** → 새 keystore로 서명 시 서명 불일치로 **기존 앱 위에 못 덮어씀** → 한 번 더 삭제 후 재설치(누적 데이터 초기화) 필요.
-- 그러니 **앱을 계속 쓸 거면 keystore 백업은 필수**.
+| 파일 | 위치 | 내용 | 비고 |
+|------|------|------|------|
+| `smsforward-release.keystore` | `C:\dev\smsforward\` (프로젝트 루트) | 서명 키 본체 (PKCS12, alias `smsforward`, 10000일 유효) | 바이너리 — 절대 수정 금지 |
+| `keystore.properties` | `C:\dev\smsforward\` (프로젝트 루트) | 서명 설정 + **비밀번호 평문 포함** | 이 파일만 있으면 비번도 같이 보존됨 |
 
-### 새 노트북 인계 시
-- clone 직후엔 keystore가 없으므로(gitignore) **백업해둔 두 파일을 프로젝트 루트에 복사**해야 `build-release.bat`가 동작한다.
-- 복사 없이 빌드하면 서명 없는 release가 만들어지거나 설치 시 기존 데이터와 호환 안 됨.
+`keystore.properties` 내용 (참고):
+```properties
+storeFile=smsforward-release.keystore   # 상대경로 — 어느 PC든 동작
+storePassword=<비밀번호>
+keyAlias=smsforward
+keyPassword=<storePassword와 동일>
+```
+
+### 7-2. 백업 방법 (택1 이상, 2곳 권장)
+
+- **개인 클라우드** (Google Drive / OneDrive / Dropbox 등) 비공개 폴더에 두 파일 업로드
+- **USB / 외장 디스크**에 복사
+- **비밀번호 매니저**(1Password / Bitwarden 등)에 비밀번호 + keystore 파일 첨부
+- ⚠️ **공개 GitHub·이메일 평문·메신저로는 보내지 말 것** (비밀번호·서명 키 유출)
+
+> 권장: 클라우드 1곳 + USB 1곳 = **2중 백업**. keystore는 재생성 불가라 단일 백업은 위험.
+
+### 7-3. ❌ 함께 복사하면 안 되는 것
+
+| 파일 | 이유 |
+|------|------|
+| `local.properties` | `sdk.dir=C:\Users\<사용자명>\...` — **현재 노트북 전용 경로**. 새 PC에선 깨짐. 첫 Gradle Sync 때 자동 생성되므로 복사 불필요 |
+| `app/build/`, `.gradle/` | 빌드 산출물 — 자동 재생성 |
+
+### 7-4. 새 노트북에서 복원 절차
+
+```bat
+:: 1) 저장소 클론 (keystore 2개는 .gitignore라 포함 안 됨)
+git clone https://github.com/deejk/SmsForward.git C:\dev\smsforward
+
+:: 2) 백업해둔 두 파일을 프로젝트 루트에 복사 (이름·위치 그대로)
+::    C:\dev\smsforward\smsforward-release.keystore
+::    C:\dev\smsforward\keystore.properties
+
+:: 3) local.properties 는 복사하지 말 것 (Android Studio 첫 sync가 자동 생성)
+
+:: 4) 서명된 release 빌드
+cd C:\dev\smsforward
+build-release.bat
+```
+
+→ 산출물: `app\build\outputs\apk\release\app-release.apk` (같은 키로 서명됨)
+
+### 7-5. 서명 일치 검증 (복원 후 / 의심 시)
+
+설치 전 서명이 기존과 같은지 확인하려면:
+```bat
+:: APK 서명 인증서 지문 출력 (SHA-256 비교)
+set "PATH=%LOCALAPPDATA%\Android\Sdk\build-tools\<버전>;%PATH%"
+apksigner verify --print-certs app\build\outputs\apk\release\app-release.apk
+```
+- `Verifies` + 서명자 1명 나오면 정상 서명됨
+- 폰에 `-r` 설치가 **서명 오류 없이 `Success`** 면 동일 키 확정 (데이터 보존됨)
+- 만약 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` → 다른 키로 서명된 것 → keystore 잘못 복원됨
+
+### 7-6. 분실 시 (최악의 시나리오)
+
+- keystore를 잃으면 **같은 서명을 다시 만들 수 없음** (재생성한 keystore는 다른 서명).
+- 결과: 기존 앱 위에 덮어쓰기 불가 → **앱 삭제 후 새 키로 재설치** 필요 → 그 시점에 **누적·설정 1회 초기화**.
+- 그 이후부터는 새 keystore를 백업해 다시 같은 흐름 유지.
+- 즉, 분실해도 앱이 망가지진 않지만 **데이터 한 번 날아감**. 그래서 백업이 중요.
+
+### 7-7. 새 keystore를 만들어야 한다면 (참고)
+
+분실했거나 새로 발급할 때의 생성 명령 (Android Studio JBR의 keytool 사용):
+```bat
+set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
+cd C:\dev\smsforward
+keytool -genkeypair -v -keystore smsforward-release.keystore -storetype PKCS12 ^
+  -alias smsforward -keyalg RSA -keysize 2048 -validity 10000 ^
+  -storepass <새비번> -keypass <새비번> -dname "CN=SmsForward, O=deejk, C=KR"
+```
+생성 후 `keystore.properties`의 비밀번호도 새 값으로 갱신할 것.
