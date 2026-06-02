@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 다크 모드 화면 배경 (라이트 모드의 #F5F5F5에 대응) -->
+    <color name="screenBackground">#121212</color>
+</resources>
